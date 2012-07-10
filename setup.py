@@ -1,10 +1,8 @@
 #!/usr/bin/python
 from setuptools import setup
-import samfilter
-
 setup(
     name = "samfilter",
-    version = samfilter.__version__,
+    version = 0.1,
     description = "Filter SAM/BAM files.",
     license = "GPL",
     scripts = ['scripts/samfilter.py'],
