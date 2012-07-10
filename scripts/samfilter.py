@@ -1,5 +1,5 @@
-## sf.py -- samtools filter
-
+## samfilter.py -- samtools filter
+__version__ = 0.1
 import sys
 try:
     import pysam
