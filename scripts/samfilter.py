@@ -147,7 +147,7 @@ if __name__ == "__main__":
         str_filters = "filters used: " + ', '.join(sam_filters.keys()) + "\n"
         sys.stderr.write(str_filters)
     except KeyboardInterrupt:
-        sys.stderr.write("Keyboard intercept - aborting.\n")
+        sys.stderr.write("Keyboard interrupt - aborting.\n")
     finally:
         # try to close stdout, stderr
         try:
