@@ -1,5 +1,5 @@
 ## samfilter.py -- samtools filter
-__version__ = 0.1
+__version__ = 0.3
 import sys
 try:
     import pysam
@@ -21,7 +21,8 @@ is not mapped (and thus doesn't have a reference name), so either of
 these filters also add the condition that the read is mapped (i.e., it
 implicitly adds --mapped). Also, --mapq, --forward, and --reverse also
 only make sense if the read is mapped, so this is an implicit filter
-in these options as well.
+in these options as well. --different-rnames also only makes sense if
+*both* target sequence and mate are mapped.
 
 Filtering by --proper-pair and --mate-mapped also only makes sense if
 a read is paired, since a single-ended read would lead this to be
@@ -40,6 +41,7 @@ parser.add_argument('--unmapped', help="query must be unmapped", action="store_t
 parser.add_argument('--reverse', help="query must be on reverse strand", action="store_true", default=None)
 parser.add_argument('--forward', help="query must be on forward strand", action="store_true", default=None)
 parser.add_argument('--mapq', help="mapping quality must be greater than or equal to this value.", default=None, type=int)
+parser.add_argument('--different-rnames', help="the target and mate reference names differ (and both are mapped).", action="store_true", default=None)
 parser.add_argument('--proper-pair', help="must be in proper pair.", action="store_true", default=None)
 parser.add_argument('--mate-mapped', help="mate must be mapped.", action="store_true", default=None)
 parser.add_argument('--output', help="output file (default stdin)",
@@ -51,6 +53,7 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None,
                       single=None, mapped=None,
                       unmapped=None, reverse=None,
                       forward=None, proper_pair=None,
+                      different_rnames=None,
                       mate_mapped=None, mapq=None):
     """
     Return a list of functions that return True if the condition is
@@ -58,10 +61,14 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None,
     """
     filters = dict()
 
+    # both of these are O(1) lookup, assuming low collisions (which
+    # should be handled well, as Python's dicts use open addressing,
+    # not seperate chaining).
     if qids is not None:
         filters['qid'] = lambda x: qids.get(x.qname, False)
     if rids is not None:
         filters['rid'] = lambda x: not x.is_unmapped and rids.get(samfile.getrname(x.tid), False)
+        
     if paired is not None:
         filters['paired'] = lambda x: x.is_paired
     if single is not None:
@@ -76,6 +83,10 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None,
         filters['forward'] = lambda x: not x.is_unmapped and not x.is_reverse
     if proper_pair is not None:
         filters['proper_pair'] = lambda x: x.is_paired and x.is_proper_pair
+    if not_proper_pair is not None:
+        filters['not_proper_pair'] = lambda x: x.is_paired and not x.is_proper_pair
+    if different_rnames is not None:
+        filters['different_rnames'] = lambda x: not x.is_unmapped and not x.mate_is_unmapped and x.is_paired and x.tid != x.rnext
     if mate_mapped is not None:
         filters['mate_mapped'] = lambda x: x.is_paired and not x.mate_is_unmapped
     if mapq is not None:
@@ -135,6 +146,7 @@ if __name__ == "__main__":
                                     reverse=args.reverse,
                                     forward=args.forward,
                                     proper_pair=args.proper_pair,
+                                    different_rnames=args.different_rnames,
                                     mate_mapped=args.mate_mapped,
                                     mapq=args.mapq)
     

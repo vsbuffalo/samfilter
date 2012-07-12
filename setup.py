@@ -2,7 +2,7 @@
 from setuptools import setup
 setup(
     name = "samfilter",
-    version = 0.1,
+    version = 0.3,
     description = "Filter SAM/BAM files.",
     license = "GPL",
     scripts = ['scripts/samfilter.py'],
