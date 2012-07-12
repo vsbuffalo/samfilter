@@ -35,6 +35,7 @@ parser.add_argument('--rids', help="CSV string of reference names.", type=str, d
 parser.add_argument('--rids-file', help="file of reference names, one per line.", type=argparse.FileType("r"))
 parser.add_argument('--mapped', help="query must be mapped", action="store_true", default=None)
 parser.add_argument('--paired', help="query must be paired", action="store_true", default=None)
+parser.add_argument('--single', help="query must be unpaired (single-end read)", action="store_true", default=None)
 parser.add_argument('--unmapped', help="query must be unmapped", action="store_true", default=None)
 parser.add_argument('--reverse', help="query must be on reverse strand", action="store_true", default=None)
 parser.add_argument('--forward', help="query must be on forward strand", action="store_true", default=None)
@@ -46,7 +47,8 @@ parser.add_argument('--output', help="output file (default stdin)",
 parser.add_argument('--output-bam', help="use binary (BAM) as output format",
                     default=False, action="store_true")
 
-def build_sam_filters(samfile, qids=None, rids=None, paired=None, mapped=None,
+def build_sam_filters(samfile, qids=None, rids=None, paired=None,
+                      single=None, mapped=None,
                       unmapped=None, reverse=None,
                       forward=None, proper_pair=None,
                       mate_mapped=None, mapq=None):
@@ -62,6 +64,8 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None, mapped=None,
         filters['rid'] = lambda x: not x.is_unmapped and rids.get(samfile.getrname(x.tid), False)
     if paired is not None:
         filters['paired'] = lambda x: x.is_paired
+    if single is not None:
+        filters['single'] = lambda x: not x.is_paired
     if mapped is not None:
         filters['mapped'] = lambda x: not x.is_unmapped
     if unmapped is not None:
@@ -125,7 +129,7 @@ if __name__ == "__main__":
 
     # build list of filters, all must be true
     sam_filters = build_sam_filters(samfile, qids=qids_hash, rids=rids_hash,
-                                    paired=args.paired,
+                                    single=args.single, paired=args.paired,
                                     mapped=args.mapped,
                                     unmapped=args.unmapped,
                                     reverse=args.reverse,

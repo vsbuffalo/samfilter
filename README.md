@@ -1,6 +1,6 @@
 # Samtools Filter
 
-A tiny, general purpose SAM/BAM filter. See `python sf.py --help` for
+A tiny, general purpose SAM/BAM filter. See `python samfilter.py --help` for
 usage. More options may come later.
 
 # Requirement
