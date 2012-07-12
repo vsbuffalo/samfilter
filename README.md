@@ -11,7 +11,7 @@ A new-ish Python (>= 2.6.5) and `pysam`
 
     python setup.py install
 
-Then run `python sf.py`.
+Or just run the script.
 
 ## License
 
