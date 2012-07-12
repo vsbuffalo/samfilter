@@ -42,6 +42,7 @@ parser.add_argument('--reverse', help="query must be on reverse strand", action=
 parser.add_argument('--forward', help="query must be on forward strand", action="store_true", default=None)
 parser.add_argument('--mapq', help="mapping quality must be greater than or equal to this value.", default=None, type=int)
 parser.add_argument('--different-rnames', help="the target and mate reference names differ (and both are mapped).", action="store_true", default=None)
+parser.add_argument('--not-proper-pair', help="must not be in a proper pair.", action="store_true", default=None)
 parser.add_argument('--proper-pair', help="must be in proper pair.", action="store_true", default=None)
 parser.add_argument('--mate-mapped', help="mate must be mapped.", action="store_true", default=None)
 parser.add_argument('--output', help="output file (default stdin)",
@@ -53,7 +54,7 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None,
                       single=None, mapped=None,
                       unmapped=None, reverse=None,
                       forward=None, proper_pair=None,
-                      different_rnames=None,
+                      not_proper_pair=None, different_rnames=None,
                       mate_mapped=None, mapq=None):
     """
     Return a list of functions that return True if the condition is
@@ -146,6 +147,7 @@ if __name__ == "__main__":
                                     reverse=args.reverse,
                                     forward=args.forward,
                                     proper_pair=args.proper_pair,
+                                    not_proper_pair=args.not_proper_pair,
                                     different_rnames=args.different_rnames,
                                     mate_mapped=args.mate_mapped,
                                     mapq=args.mapq)
