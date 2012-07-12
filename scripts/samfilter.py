@@ -10,7 +10,23 @@ from os import path
 import re
 import csv
 
-parser = argparse.ArgumentParser(description="filter SAM/BAM file based on input.")
+parser = argparse.ArgumentParser(description="""
+Filter SAM/BAM file based on specified filters.
+
+Note: These filters are not necessarily independent because in some
+contexts, this would not make sense.
+
+Filtering by --rids and --rids-files does not make sense if the read
+is not mapped (and thus doesn't have a reference name), so either of
+these filters also add the condition that the read is mapped (i.e., it
+implicitly adds --mapped). Also, --mapq, --forward, and --reverse also
+only make sense if the read is mapped, so this is an implicit filter
+in these options as well.
+
+Filtering by --proper-pair and --mate-mapped also only makes sense if
+a read is paired, since a single-ended read would lead this to be
+false.
+""")
 parser.add_argument("file", type=str, # not file, need to determine whether binary
                     help="SAM/BAM file")
 parser.add_argument('--qids', help="CSV string of query names.", type=str, default=None)
@@ -43,7 +59,7 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None, mapped=None,
     if qids is not None:
         filters['qid'] = lambda x: qids.get(x.qname, False)
     if rids is not None:
-        filters['rid'] = lambda x: rids.get(samfile.getrname(x.tid), False)
+        filters['rid'] = lambda x: not x.is_unmapped and rids.get(samfile.getrname(x.tid), False)
     if paired is not None:
         filters['paired'] = lambda x: x.is_paired
     if mapped is not None:
@@ -51,15 +67,15 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None, mapped=None,
     if unmapped is not None:
         filters['unmapped'] = lambda x: x.is_unmapped
     if reverse is not None:
-        filters['reverse'] = lambda x: x.is_reverse
+        filters['reverse'] = lambda x: not x.is_unmapped and x.is_reverse
     if forward is not None:
-        filters['forward'] = lambda x: not x.is_reverse
+        filters['forward'] = lambda x: not x.is_unmapped and not x.is_reverse
     if proper_pair is not None:
         filters['proper_pair'] = lambda x: x.is_paired and x.is_proper_pair
     if mate_mapped is not None:
         filters['mate_mapped'] = lambda x: x.is_paired and not x.mate_is_unmapped
     if mapq is not None:
-        filters['mapq'] = lambda x: x.mapq >= mapq
+        filters['mapq'] = lambda x: not x.is_unmapped and x.mapq >= mapq
 
     return filters
 
@@ -120,23 +136,25 @@ if __name__ == "__main__":
     
     nkept = 0
     ntotal = 0
-    for read in samfile:
-        ntotal += 1
-        if all([f(read) for f in sam_filters.values()]):
-            nkept += 1
-            out_samfile.write(read)
-
-
-    sys.stderr.write("%d kept, %d total.\n" % (nkept, ntotal))
-    str_filters = "filters used: " + ', '.join(sam_filters.keys()) + "\n"
-    sys.stderr.write(str_filters)
-
-    # try to close stdout, stderr
     try:
-        sys.stdout.close()
-    except:
-        pass
-    try:
-        sys.stderr.close()
-    except:
-        pass    
+        for read in samfile:
+            ntotal += 1
+            if all([f(read) for f in sam_filters.values()]):
+                nkept += 1
+                out_samfile.write(read)
+                
+        sys.stderr.write("%d kept, %d total.\n" % (nkept, ntotal))
+        str_filters = "filters used: " + ', '.join(sam_filters.keys()) + "\n"
+        sys.stderr.write(str_filters)
+    except KeyboardInterrupt:
+        sys.stderr.write("Keyboard intercept - aborting.\n")
+    finally:
+        # try to close stdout, stderr
+        try:
+            sys.stdout.close()
+        except:
+            pass
+        try:
+            sys.stderr.close()
+        except:
+            pass
