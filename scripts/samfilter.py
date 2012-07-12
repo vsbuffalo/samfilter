@@ -15,6 +15,8 @@ parser.add_argument("file", type=str, # not file, need to determine whether bina
                     help="SAM/BAM file")
 parser.add_argument('--qids', help="CSV string of query names.", type=str, default=None)
 parser.add_argument('--qids-file', help="file of query names, one per line.", type=argparse.FileType("r"))
+parser.add_argument('--rids', help="CSV string of reference names.", type=str, default=None)
+parser.add_argument('--rids-file', help="file of reference names, one per line.", type=argparse.FileType("r"))
 parser.add_argument('--mapped', help="query must be mapped", action="store_true", default=None)
 parser.add_argument('--paired', help="query must be paired", action="store_true", default=None)
 parser.add_argument('--unmapped', help="query must be unmapped", action="store_true", default=None)
@@ -28,7 +30,7 @@ parser.add_argument('--output', help="output file (default stdin)",
 parser.add_argument('--output-bam', help="use binary (BAM) as output format",
                     default=False, action="store_true")
 
-def build_sam_filters(qids=None, paired=None, mapped=None,
+def build_sam_filters(samfile, qids=None, rids=None, paired=None, mapped=None,
                       unmapped=None, reverse=None,
                       forward=None, proper_pair=None,
                       mate_mapped=None, mapq=None):
@@ -40,6 +42,8 @@ def build_sam_filters(qids=None, paired=None, mapped=None,
 
     if qids is not None:
         filters['qid'] = lambda x: qids.get(x.qname, False)
+    if rids is not None:
+        filters['rid'] = lambda x: rids.get(samfile.getrname(x.tid), False)
     if paired is not None:
         filters['paired'] = lambda x: x.is_paired
     if mapped is not None:
@@ -79,25 +83,33 @@ if __name__ == "__main__":
     else:
         out_samfile = pysam.Samfile("-", "w", template=samfile)
 
+    def build_id_hash(id_file=None, id_string=None):
+        """
+        For either a file of IDs or a string of CSV ids, return a hash
+        of them.
+        """
+        ids = list()
+        if id_string:
+            ids.extend(re.split(" ?,", id_string))
+        if id_file:
+            try:
+                with id_file as f:
+                    ids.extend([q.strip() for q in f.readlines()])
+            except IOError as e:
+                sys.exit("Cannot open file '%s'." % id_file)
 
-    # check if there are query ids to subset
-    qids = list()
-    if args.qids:
-        qids.extend(re.split(" ?,", args.qids))
-    if args.qids_file:
-        try:
-            with args.qids_file as f:
-                qids.extend([q.strip() for q in f.readlines()])
-        except IOError as e:
-            sys.exit("Cannot open file '%s'." % args.qids_file)
+        # TODO check against duplicates?
+        ids_hash = dict(zip(ids, [True]*len(ids)))
+        if len(ids_hash) == 0:
+            ids_hash = None
+        return ids_hash
 
-    # TODO check against duplicates?
-    qids_hash = dict(zip(qids, [True]*len(qids)))
-    if len(qids_hash) == 0:
-        qids_hash = None
+    qids_hash = build_id_hash(args.qids_file, args.qids)
+    rids_hash = build_id_hash(args.rids_file, args.rids)
 
     # build list of filters, all must be true
-    sam_filters = build_sam_filters(qids=qids_hash, paired=args.paired,
+    sam_filters = build_sam_filters(samfile, qids=qids_hash, rids=rids_hash,
+                                    paired=args.paired,
                                     mapped=args.mapped,
                                     unmapped=args.unmapped,
                                     reverse=args.reverse,
