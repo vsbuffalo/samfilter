@@ -87,7 +87,7 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None,
     if not_proper_pair is not None:
         filters['not_proper_pair'] = lambda x: x.is_paired and not x.is_proper_pair
     if different_rnames is not None:
-        filters['different_rnames'] = lambda x: not x.is_unmapped and not x.mate_is_unmapped and x.is_paired and x.rid != x.rnext
+        filters['different_rnames'] = lambda x: not x.is_unmapped and not x.mate_is_unmapped and x.is_paired and x.tid != x.rnext
     if mate_mapped is not None:
         filters['mate_mapped'] = lambda x: x.is_paired and not x.mate_is_unmapped
     if mapq is not None:
