@@ -7,8 +7,6 @@ except ImportError as e:
     sys.exit("Could not find pysam; if not installed, download and install from http://code.google.com/p/pysam/.")
 import argparse
 from os import path
-import re
-import csv
 
 parser = argparse.ArgumentParser(description="""
 Filter SAM/BAM file based on specified filters.
