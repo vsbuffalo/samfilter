@@ -7,6 +7,7 @@ except ImportError as e:
     sys.exit("Could not find pysam; if not installed, download and install from http://code.google.com/p/pysam/.")
 import argparse
 from os import path
+import pdb
 
 parser = argparse.ArgumentParser(description="""
 Filter SAM/BAM file based on specified filters.
@@ -20,7 +21,8 @@ these filters also add the condition that the read is mapped (i.e., it
 implicitly adds --mapped). Also, --mapq, --forward, and --reverse also
 only make sense if the read is mapped, so this is an implicit filter
 in these options as well. --different-rnames also only makes sense if
-*both* target sequence and mate are mapped.
+*both* target sequence and mate are mapped. Likewise, --x0-unique implies
+--mapped.
 
 Filtering by --proper-pair and --mate-mapped also only makes sense if
 a read is paired, since a single-ended read would lead this to be
@@ -37,6 +39,7 @@ parser.add_argument('--paired', help="query must be paired", action="store_true"
 parser.add_argument('--single', help="query must be unpaired (single-end read)", action="store_true", default=None)
 parser.add_argument('--unmapped', help="query must be unmapped", action="store_true", default=None)
 parser.add_argument('--reverse', help="query must be on reverse strand", action="store_true", default=None)
+parser.add_argument('--x0-unique', help="query sequence mapped uniquely (BWA's X0 must equal 1)", action="store_true", default=None)
 parser.add_argument('--forward', help="query must be on forward strand", action="store_true", default=None)
 parser.add_argument('--mapq', help="mapping quality must be greater than or equal to this value.", default=None, type=int)
 parser.add_argument('--different-rnames', help="the target and mate reference names differ (and both are mapped).", action="store_true", default=None)
@@ -50,6 +53,7 @@ parser.add_argument('--output-bam', help="use binary (BAM) as output format",
 
 def build_sam_filters(samfile, qids=None, rids=None, paired=None,
                       single=None, mapped=None,
+                      x0_unique=None,
                       unmapped=None, reverse=None,
                       forward=None, proper_pair=None,
                       not_proper_pair=None, different_rnames=None,
@@ -67,13 +71,14 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None,
         filters['qid'] = lambda x: qids.get(x.qname, False)
     if rids is not None:
         filters['rid'] = lambda x: not x.is_unmapped and rids.get(samfile.getrname(x.tid), False)
-        
     if paired is not None:
         filters['paired'] = lambda x: x.is_paired
     if single is not None:
         filters['single'] = lambda x: not x.is_paired
     if mapped is not None:
         filters['mapped'] = lambda x: not x.is_unmapped
+    if x0_unique is not None:
+        filters['x0_unique'] = lambda x: dict(x.tags)["X0"] == 1
     if unmapped is not None:
         filters['unmapped'] = lambda x: x.is_unmapped
     if reverse is not None:
@@ -140,7 +145,7 @@ if __name__ == "__main__":
     # build list of filters, all must be true
     sam_filters = build_sam_filters(samfile, qids=qids_hash, rids=rids_hash,
                                     single=args.single, paired=args.paired,
-                                    mapped=args.mapped,
+                                    mapped=args.mapped, x0_unique=args.x0_unique, 
                                     unmapped=args.unmapped,
                                     reverse=args.reverse,
                                     forward=args.forward,
