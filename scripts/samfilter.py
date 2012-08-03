@@ -21,7 +21,7 @@ these filters also add the condition that the read is mapped (i.e., it
 implicitly adds --mapped). Also, --mapq, --forward, and --reverse also
 only make sense if the read is mapped, so this is an implicit filter
 in these options as well. --different-rnames also only makes sense if
-*both* target sequence and mate are mapped. Likewise, --x0-unique implies
+*both* target sequence and mate are mapped. Likewise, --xt-unique implies
 --mapped.
 
 Filtering by --proper-pair and --mate-mapped also only makes sense if
@@ -39,7 +39,7 @@ parser.add_argument('--paired', help="query must be paired", action="store_true"
 parser.add_argument('--single', help="query must be unpaired (single-end read)", action="store_true", default=None)
 parser.add_argument('--unmapped', help="query must be unmapped", action="store_true", default=None)
 parser.add_argument('--reverse', help="query must be on reverse strand", action="store_true", default=None)
-parser.add_argument('--x0-unique', help="query sequence mapped uniquely (BWA's X0 must equal 1)", action="store_true", default=None)
+parser.add_argument('--xt-unique', help="query sequence mapped uniquely (BWA's XT must equal U)", action="store_true", default=None)
 parser.add_argument('--forward', help="query must be on forward strand", action="store_true", default=None)
 parser.add_argument('--mapq', help="mapping quality must be greater than or equal to this value.", default=None, type=int)
 parser.add_argument('--different-rnames', help="the target and mate reference names differ (and both are mapped).", action="store_true", default=None)
@@ -53,7 +53,7 @@ parser.add_argument('--output-bam', help="use binary (BAM) as output format",
 
 def build_sam_filters(samfile, qids=None, rids=None, paired=None,
                       single=None, mapped=None,
-                      x0_unique=None,
+                      xt_unique=None,
                       unmapped=None, reverse=None,
                       forward=None, proper_pair=None,
                       not_proper_pair=None, different_rnames=None,
@@ -77,8 +77,8 @@ def build_sam_filters(samfile, qids=None, rids=None, paired=None,
         filters['single'] = lambda x: not x.is_paired
     if mapped is not None:
         filters['mapped'] = lambda x: not x.is_unmapped
-    if x0_unique is not None:
-        filters['x0_unique'] = lambda x: dict(x.tags)["X0"] == 1
+    if xt_unique is not None:
+        filters['xt_unique'] = lambda x: not x.is_unmapped and dict(x.tags)["XT"] == "U"
     if unmapped is not None:
         filters['unmapped'] = lambda x: x.is_unmapped
     if reverse is not None:
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # build list of filters, all must be true
     sam_filters = build_sam_filters(samfile, qids=qids_hash, rids=rids_hash,
                                     single=args.single, paired=args.paired,
-                                    mapped=args.mapped, x0_unique=args.x0_unique, 
+                                    mapped=args.mapped, xt_unique=args.xt_unique, 
                                     unmapped=args.unmapped,
                                     reverse=args.reverse,
                                     forward=args.forward,
@@ -154,12 +154,22 @@ if __name__ == "__main__":
                                     different_rnames=args.different_rnames,
                                     mate_mapped=args.mate_mapped,
                                     mapq=args.mapq)
+
     
     nkept = 0
     ntotal = 0
     try:
         for read in samfile:
             ntotal += 1
+
+            # If we're looking for unique, check this condition and
+            # die if not true. This is because indicators of read
+            # mapping uniqueness are non-orthogonal.
+            if args.xt_unique is not None:
+                dtags = dict(read.tags)
+                if not read.is_unmapped and dtags["XT"] == "U" and dtags["X0"] > 1:
+                    raise Exception, "tags X0 and XT do not agree."
+
             if all([f(read) for f in sam_filters.values()]):
                 nkept += 1
                 out_samfile.write(read)
